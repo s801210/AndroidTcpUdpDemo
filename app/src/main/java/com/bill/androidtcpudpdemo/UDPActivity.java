@@ -32,6 +32,7 @@ public class UDPActivity extends AppCompatActivity {
     private boolean listenStatus = true;  //接收執行緒的迴圈標識
     private DatagramSocket receiveSocket;
     private DatagramSocket sendSocket;
+    WifiManager wifiManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,7 +59,7 @@ public class UDPActivity extends AppCompatActivity {
                 }
             }
         });
-
+        wifiManager = (WifiManager) this.getSystemService(Context.WIFI_SERVICE);
         new UdpReceiveThread().start();
 
 
@@ -76,17 +77,13 @@ public class UDPActivity extends AppCompatActivity {
             {
                 receiveSocket = new DatagramSocket(port);
                 receiveSocket.setBroadcast(true);
-
                 while (listenStatus) {
                     byte[] buf = new byte[1024];
                     final DatagramPacket packet = new DatagramPacket(buf, buf.length);
                     receiveSocket.receive(packet);
-
-                    //Packet received
                     final String data = new String(packet.getData()).trim();
-                    Log.i(TAG, "Packet received from: " +
-                            packet.getAddress().getHostAddress());
-                    Log.i(TAG, "Packet received data: " + data);
+                    Log.i(TAG, "Packet received from: "+packet.getAddress().getHostAddress()+
+                            "data: " + data);
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
@@ -127,21 +124,21 @@ public class UDPActivity extends AppCompatActivity {
     }
 
     InetAddress getBroadcastAddress() throws IOException {
-        WifiManager manager = (WifiManager) this.getSystemService(Context.WIFI_SERVICE);
-        DhcpInfo dhcp = manager.getDhcpInfo();
-        int broadcast = (dhcp.ipAddress & dhcp.netmask) | ~dhcp.netmask;
+        assert wifiManager != null;
+        int broadcast = (wifiManager.getDhcpInfo().ipAddress &
+                wifiManager.getDhcpInfo().netmask) | ~ wifiManager.getDhcpInfo().netmask;
         byte[] quads = new byte[4];
-        for (int k = 0; k < 4; k++)
-            quads[k] = (byte) ((broadcast >> k * 8) & 0xFF);
+        for (int i = 0; i < 4; i++)
+            quads[i] = (byte) ((broadcast >> i * 8) & 0xFF);
         return InetAddress.getByAddress(quads);
     }
 
     private String getLocalIpAddress() throws UnknownHostException {
-        WifiManager wifiManager = (WifiManager) getApplicationContext().getSystemService(WIFI_SERVICE);
         assert wifiManager != null;
         WifiInfo wifiInfo = wifiManager.getConnectionInfo();
         int ipInt = wifiInfo.getIpAddress();
-        return InetAddress.getByAddress(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(ipInt).array()).getHostAddress();
+        return InetAddress.getByAddress(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN)
+                .putInt(ipInt).array()).getHostAddress();
     }
 
 
